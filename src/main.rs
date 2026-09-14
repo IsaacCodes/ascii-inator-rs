@@ -1,3 +1,5 @@
+use ffmpeg_sidecar::event::{FfmpegEvent, LogLevel};
+
 use ascii_inator_rs::{SymbolFormat, get_iter, print_frame};
 
 fn main() {
@@ -6,20 +8,23 @@ fn main() {
     let width = 75;
     let height = 25;
     let framerate = 10;
+    let fmt = SymbolFormat::AsciiColor;
 
     //Creates iterator
     let iter = get_iter(src, width, height, framerate)
         .expect("ffmpeg: Failed to start");
 
-    // for x in iter {
-    //     eprintln!("{x:?}");
-    // }
-    // return;
-
-    //TODO: Handle errors, not just frames
-    //Loop over frames
-    for frame in iter.filter_frames() {
-        //Print the frame
-        print_frame(frame, SymbolFormat::SquareColor);
+    //Loop over events
+    for frame in iter {
+        match frame {
+            //Print the frame
+            FfmpegEvent::OutputFrame(frame) => print_frame(frame, fmt),
+            //Display errors
+            FfmpegEvent::Error(err)
+            | FfmpegEvent::Log(LogLevel::Error | LogLevel::Fatal, err) => {
+                eprintln!("Error: {err}")
+            },
+            _ => (),
+        };
     }
 }

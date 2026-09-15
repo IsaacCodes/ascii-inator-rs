@@ -1,3 +1,5 @@
+use std::io::{Write, stdout};
+
 use ffmpeg_sidecar::{
     command::FfmpegCommand, event::OutputVideoFrame, iter::FfmpegIterator,
 };
@@ -13,14 +15,14 @@ pub enum SymbolFormat {
 //Generates the ffmpeg frame iterator
 pub fn get_iter(
     src: &str,
-    width: u32,
-    height: u32,
+    width: u16,
+    height: u16,
     framerate: u16,
 ) -> anyhow::Result<FfmpegIterator> {
     //Command builder for iterator
     let iter = FfmpegCommand::new()
         .input(src)
-        .size(width, height)
+        .size(width as u32, height as u32)
         .rate(framerate.into())
         .rawvideo()
         //Run the command
@@ -31,9 +33,10 @@ pub fn get_iter(
     Ok(iter)
 }
 
-//TODO: Switch to locking stdout
 //Prints a frame according to format
 pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
+    let mut out = stdout().lock();
+
     //Data is flat vec with r, g, b for each frame's pixel
     for y in 0..frame.height {
         //This line of chars
@@ -46,14 +49,14 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 
             //Convert to symbol + print
             let symbol = frame_to_symbol(r, g, b, fmt);
-            print!("{symbol}");
+            write!(out, "{symbol}").unwrap();
         }
 
         //Newline and clear color (if relevant)
         match fmt {
-            SymbolFormat::Ascii => println!(),
+            SymbolFormat::Ascii => writeln!(out).unwrap(),
             SymbolFormat::AsciiColor | SymbolFormat::SquareColor => {
-                println!("\x1B[0m")
+                writeln!(out, "\x1b[0m").unwrap();
             },
         }
     }
@@ -86,8 +89,8 @@ fn frame_to_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat) -> String {
     match fmt {
         SymbolFormat::Ascii => symbol.to_string(),
         //Foreground rgb
-        SymbolFormat::AsciiColor => format!("\x1B[38;2;{r};{g};{b}m{symbol}"),
+        SymbolFormat::AsciiColor => format!("\x1b[38;2;{r};{g};{b}m{symbol}"),
         //Background rgb
-        SymbolFormat::SquareColor => format!("\x1B[48;2;{r};{g};{b}m{symbol}"),
+        SymbolFormat::SquareColor => format!("\x1b[48;2;{r};{g};{b}m{symbol}"),
     }
 }

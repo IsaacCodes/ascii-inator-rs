@@ -31,21 +31,24 @@ pub fn get_iter(
     Ok(iter)
 }
 
+//TODO: Switch to locking stdout
 //Prints a frame according to format
 pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
     //Data is flat vec with r, g, b for each frame's pixel
-    //Loop y, x
     for y in 0..frame.height {
+        //This line of chars
         for x in 0..frame.width {
             //Get starting index for pixel
             let i = ((y * frame.width + x) * 3) as usize;
             //Get each rgb value
-            let rgb = (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
+            let (r, g, b) =
+                (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
 
             //Convert to symbol + print
-            let symbol = frame_to_symbol(rgb, fmt);
+            let symbol = frame_to_symbol(r, g, b, fmt);
             print!("{symbol}");
         }
+
         //Newline and clear color (if relevant)
         match fmt {
             SymbolFormat::Ascii => println!(),
@@ -59,9 +62,8 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 //TODO: investigate efficiency of String return type
 const ASCII_CHARS: &str = " .,-:;coaPO0@#";
 //Converts to symbol according to format
-fn frame_to_symbol(rgb: (u8, u8, u8), fmt: SymbolFormat) -> String {
-    let (r, g, b) = rgb;
-
+fn frame_to_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat) -> String {
+    //Symbol based on format
     let symbol = match fmt {
         //Finds ascii symbol
         SymbolFormat::Ascii | SymbolFormat::AsciiColor => {
@@ -73,6 +75,7 @@ fn frame_to_symbol(rgb: (u8, u8, u8), fmt: SymbolFormat) -> String {
             let i = grayscale / 255f32 * (ASCII_CHARS.len() - 1) as f32;
             let i = i.round() as usize;
 
+            //Unwrap since i is guaranteed within range
             ASCII_CHARS.chars().nth(i).unwrap()
         },
         //Just uses space
@@ -82,7 +85,9 @@ fn frame_to_symbol(rgb: (u8, u8, u8), fmt: SymbolFormat) -> String {
     //Colors as appropriate
     match fmt {
         SymbolFormat::Ascii => symbol.to_string(),
+        //Foreground rgb
         SymbolFormat::AsciiColor => format!("\x1B[38;2;{r};{g};{b}m{symbol}"),
+        //Background rgb
         SymbolFormat::SquareColor => format!("\x1B[48;2;{r};{g};{b}m{symbol}"),
     }
 }

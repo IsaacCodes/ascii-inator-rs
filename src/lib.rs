@@ -23,6 +23,7 @@ pub fn get_iter(
     let iter = FfmpegCommand::new()
         .input(src)
         .size(width as u32, height as u32)
+        //TODO: Cap framerate at native rate
         .rate(framerate.into())
         .rawvideo()
         //Run the command

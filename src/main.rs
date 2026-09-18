@@ -15,26 +15,26 @@ use ascii_inator_rs::{SymbolFormat, get_iter, print_frame};
 
 #[derive(Parser)]
 struct Args {
-    /// Path of source file
+    /// Path to source file
     file: String,
 
-    /// Type of symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor
-    #[arg(short, long, default_value_t = 1)]
+    /// Symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor
+    #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=3))]
     format: u8,
 
-    /// Maximum width to use, defaults to terminal width if possible, 80 if not
+    /// Maximum width to use [default: terminal width if possible, else 80]
     #[arg(short('W'), long, default_value = None)]
     width: Option<u16>,
 
-    /// Maximum width to use, defaults to terminal height-1 if possible, 10 if not
+    /// Maximum width to use [default: terminal height-1 if possible, else 10]
     #[arg(short('H'), long, default_value = None)]
     height: Option<u16>,
 
-    /// Ignores aspect ratio (if both height and width passed)
+    /// Ignores aspect ratio correction
     #[arg(long, default_value_t = false)]
     ignore_ar: bool,
 
-    /// Specifies framerate to render at
+    /// Specifies rendering framerate
     #[arg(long, default_value_t = 10)]
     framerate: u16,
 }
@@ -57,8 +57,7 @@ fn main() {
         1 => SymbolFormat::Ascii,
         2 => SymbolFormat::AsciiColor,
         3 => SymbolFormat::SquareColor,
-        //TODO: Standardize errors to match those from clap?
-        _ => panic!("Error: Invalid format specified"),
+        _ => panic!("Impossible due to 1..=3 restriction on input"),
     };
 
     //Calculate terminal size (and cast to u16's)
@@ -69,8 +68,9 @@ fn main() {
     let height = args.height.or(term_size.map(|(_, h)| h - 1)).unwrap_or(10);
 
     //Creates iterator
-    let iter = get_iter(&args.file, width, height, args.ignore_ar, args.framerate)
-        .expect("Error: Failed to start ffmpeg");
+    let iter =
+        get_iter(&args.file, width, height, args.ignore_ar, args.framerate)
+            .expect("Error: Failed to start ffmpeg");
 
     //Whether on first frame
     let mut first = true;

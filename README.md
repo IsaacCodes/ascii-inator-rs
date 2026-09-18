@@ -1,10 +1,16 @@
-# View Images + Videos in the Terminal
+# $ 🎬 View Images & Videos in the Terminal
 
-WIP - To support:
-* image resizing
-* rendering as ascii, ascii color, or square colors
-* ...
+### Supports:
+* Any image or video readable by ffmpeg
+* Rendering formats for: `Ascii`, `AsciiColor`, and `SquareColor`
+* Terminal size detection
+* Custom input sizes
+* Resizing bounds that respect aspect ratio
+* Ability to ignore aspect ratio
 
-## Dependencies
 
-Requires `ffmpeg` to be installed and on the path
+## Runtime Dependencies
+
+Requires `ffmpeg` installed on the path
+
+Only runs in the terminal

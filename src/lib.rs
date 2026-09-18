@@ -17,12 +17,27 @@ pub fn get_iter(
     src: &str,
     width: u16,
     height: u16,
+    ignore_ar: bool,
     framerate: u16,
 ) -> anyhow::Result<FfmpegIterator> {
+    //If we can ignore aspect ratio, just scale normally
+    let size_filter = if ignore_ar {
+        format!("scale={width}:{height}")
+    }
+    //If not, scale within bounds
+    else {
+        format!(
+            //AR = iw/ih (the AR of the actual image/video) * 2.5 (20/8) to correct for terminal character's size
+            //Takes min(width, height*AR) by min(height, width*AR) to stay within range
+            "scale='min({0}, {1}*(iw/ih)*2.5)':'min({1}, {0}/((iw/ih)*2.5))'",
+            width, height
+        )
+    };
+
     //Command builder for iterator
     let iter = FfmpegCommand::new()
         .input(src)
-        .size(width as u32, height as u32)
+        .filter(size_filter)
         //TODO: Cap framerate at native rate
         .rate(framerate.into())
         .rawvideo()
@@ -64,9 +79,11 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 }
 
 //TODO: investigate efficiency of String return type
-const ASCII_CHARS: &str = " .,-:;coaPO0@#";
 //Converts to symbol according to format
 fn frame_to_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat) -> String {
+    //Range of chars used for ascii conversion
+    const ASCII_CHARS: &str = " .,-:;coaPO0@#";
+
     //Symbol based on format
     let symbol = match fmt {
         //Finds ascii symbol

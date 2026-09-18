@@ -22,15 +22,15 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     format: u8,
 
-    /// Maximum width to use, TODO: defaults to terminal width
-    #[arg(long, default_value_t = 48)]
-    width: u16,
+    /// Maximum width to use, defaults to terminal width if possible, 80 if not
+    #[arg(short('W'), long, default_value = None)]
+    width: Option<u16>,
 
-    /// Maximum width to use, TODO: defaults to terminal height
-    #[arg(long, default_value_t = 11)]
-    height: u16,
+    /// Maximum width to use, defaults to terminal height-1 if possible, 10 if not
+    #[arg(short('H'), long, default_value = None)]
+    height: Option<u16>,
 
-    /// TODO: Ignores aspect ratio (if both height and width passed)
+    /// Ignores aspect ratio (if both height and width passed)
     #[arg(long, default_value_t = false)]
     ignore_ar: bool,
 
@@ -61,8 +61,15 @@ fn main() {
         _ => panic!("Error: Invalid format specified"),
     };
 
+    //Calculate terminal size (and cast to u16's)
+    let term_size = terminal_size::terminal_size().map(|(w, h)| (w.0, h.0));
+
+    //Size fallbacks as cli args -> terminal -> hardcoded
+    let width = args.width.or(term_size.map(|(w, _)| w)).unwrap_or(80);
+    let height = args.height.or(term_size.map(|(_, h)| h - 1)).unwrap_or(10);
+
     //Creates iterator
-    let iter = get_iter(&args.file, args.width, args.height, args.framerate)
+    let iter = get_iter(&args.file, width, height, args.ignore_ar, args.framerate)
         .expect("Error: Failed to start ffmpeg");
 
     //Whether on first frame
@@ -81,7 +88,7 @@ fn main() {
 
                 //Move cursor up by height lines (except on first frame)
                 if !first {
-                    print!("\x1b[{}A", args.height);
+                    print!("\x1b[{}A", frame.height);
                 }
                 else {
                     first = false;

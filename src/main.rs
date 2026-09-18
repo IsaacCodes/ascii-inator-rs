@@ -1,5 +1,9 @@
 use std::{
-    io::{IsTerminal, stdout},
+    io::{IsTerminal, Write, stdout},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -41,6 +45,7 @@ struct Args {
 
 
 fn main() {
+    //Check for terminal and ffmpeg requirements
     if !stdout().is_terminal() {
         panic!("Error: Must run in terminal!")
     }
@@ -48,6 +53,16 @@ fn main() {
     if !ffmpeg_is_installed() {
         panic!("Error: ffmpeg isn't installed!")
     }
+
+    //Atomic quit variable
+    let quit = Arc::new(AtomicBool::new(false));
+    let q = Arc::clone(&quit);
+
+    //Run Ctrl+C handler to set quit to true
+    ctrlc::set_handler(move || {
+        q.store(true, Ordering::SeqCst);
+    })
+    .expect("Error: Failed to set Ctrl-C handler");
 
     //Parse CLI args according to Args struct
     let args = Args::parse();
@@ -76,8 +91,6 @@ fn main() {
     let mut first = true;
     //Time to sleep to maintain framerate
     let sleep_time = Duration::from_millis(1000 / args.framerate as u64);
-    //Hide cursor
-    print!("\x1b[?25l");
 
     //Loop over events
     for frame in iter {
@@ -90,9 +103,13 @@ fn main() {
                 if !first {
                     print!("\x1b[{}A", frame.height);
                 }
+                //On first frame, hide cursor
                 else {
+                    print!("\x1b[?25l");
                     first = false;
                 }
+                stdout().flush().unwrap();
+
                 //Print frame
                 print_frame(frame, fmt);
 
@@ -108,10 +125,15 @@ fn main() {
             },
             _ => (),
         };
+
+        //TODO: In some cases this somehow seems to break while still printing??
+        //Checks quit (Ctrl+C) handler to stop printing frames and then run cleanup below
+        if quit.load(Ordering::SeqCst) {
+            break;
+        }
     }
 
     //Show cursor
     print!("\x1b[?25h");
-
-    //TODO: Intercept Ctrl+C to exit cleanly (show cursor, finish printing frame, etc)
+    stdout().flush().unwrap();
 }

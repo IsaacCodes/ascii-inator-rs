@@ -76,6 +76,8 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
             },
         }
     }
+
+    out.flush().unwrap();
 }
 
 //TODO: investigate efficiency of String return type

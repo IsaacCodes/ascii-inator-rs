@@ -1,4 +1,4 @@
-use std::io::{Write, stdout};
+use std::io::{StdoutLock, Write, stdout};
 
 use ffmpeg_sidecar::{
     command::FfmpegCommand, event::OutputVideoFrame, iter::FfmpegIterator,
@@ -63,9 +63,8 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
             let (r, g, b) =
                 (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
 
-            //Convert to symbol + print
-            let symbol = frame_to_symbol(r, g, b, fmt);
-            write!(out, "{symbol}").unwrap();
+            //Print symbol (with formatting)
+            print_symbol(r, g, b, fmt, &mut out);
         }
 
         //Newline and clear color (if relevant)
@@ -80,14 +79,13 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
     out.flush().unwrap();
 }
 
-//TODO: investigate efficiency of String return type
 //Converts to symbol according to format
-fn frame_to_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat) -> String {
+fn print_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat, out: &mut StdoutLock) {
     //Range of chars used for ascii conversion
-    const ASCII_CHARS: &str = " .,-:;coaPO0@#";
+    const ASCII_CHARS: &[u8] = b" .,-:;coaPO0@#";
 
     //Symbol based on format
-    let symbol = match fmt {
+    let symbol: char = match fmt {
         //Finds ascii symbol
         SymbolFormat::Ascii | SymbolFormat::AsciiColor => {
             //ITU-R 601-2 luma transform
@@ -98,19 +96,24 @@ fn frame_to_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat) -> String {
             let i = grayscale / 255f32 * (ASCII_CHARS.len() - 1) as f32;
             let i = i.round() as usize;
 
-            //Unwrap since i is guaranteed within range
-            ASCII_CHARS.chars().nth(i).unwrap()
+            //Index as u8, convert to char
+            ASCII_CHARS[i].into()
         },
         //Just uses space
         SymbolFormat::SquareColor => ' ',
     };
 
-    //Colors as appropriate
+    //Writes to out
     match fmt {
-        SymbolFormat::Ascii => symbol.to_string(),
+        //No color
+        SymbolFormat::Ascii => write!(out, "{symbol}").unwrap(),
         //Foreground rgb
-        SymbolFormat::AsciiColor => format!("\x1b[38;2;{r};{g};{b}m{symbol}"),
+        SymbolFormat::AsciiColor => {
+            write!(out, "\x1b[38;2;{r};{g};{b}m{symbol}").unwrap()
+        },
         //Background rgb
-        SymbolFormat::SquareColor => format!("\x1b[48;2;{r};{g};{b}m{symbol}"),
+        SymbolFormat::SquareColor => {
+            write!(out, "\x1b[48;2;{r};{g};{b}m{symbol}").unwrap()
+        },
     }
 }

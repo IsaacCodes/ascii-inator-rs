@@ -124,7 +124,7 @@ fn main() {
                 eprintln!("Error: {err}");
             },
             _ => (),
-        };
+        }
 
         //TODO: In some cases this somehow seems to break while still printing??
         //Checks quit (Ctrl+C) handler to stop printing frames and then run cleanup below

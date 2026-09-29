@@ -26,11 +26,11 @@ struct Args {
     #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=3))]
     format: u8,
 
-    /// Maximum width to use [default: terminal width if possible, else 80]
+    /// Maximum width to use [default: terminal_width if possible, else 80]
     #[arg(short('W'), long, default_value = None)]
     width: Option<u16>,
 
-    /// Maximum width to use [default: terminal height-1 if possible, else 10]
+    /// Maximum width to use [default: terminal_height-1 if possible, else 10]
     #[arg(short('H'), long, default_value = None)]
     height: Option<u16>,
 
@@ -38,9 +38,11 @@ struct Args {
     #[arg(long, default_value_t = false)]
     ignore_ar: bool,
 
-    /// Specifies rendering framerate
-    #[arg(long, default_value_t = 10)]
-    framerate: u16,
+    /// Specifies rendering framerate, capped at native fps
+    #[arg(long, default_value_t = 10, value_parser=clap::value_parser!(u16).range(1..))]
+    fps: u16,
+    
+    //TODO: Add more options like start_time
 }
 
 
@@ -83,40 +85,40 @@ fn main() {
     let height = args.height.or(term_size.map(|(_, h)| h - 1)).unwrap_or(10);
 
     //Creates iterator
-    let iter =
-        get_iter(&args.file, width, height, args.ignore_ar, args.framerate)
-            .expect("Error: Failed to start ffmpeg");
+    let iter = get_iter(&args.file, width, height, args.ignore_ar, args.fps)
+        .expect("Error: Failed to start ffmpeg");
 
-    //Whether on first frame
-    let mut first = true;
-    //Time to sleep to maintain framerate
-    let sleep_time = Duration::from_millis(1000 / args.framerate as u64);
+    //Sentinel on for sleep times, becomes Some(...) on first frame
+    let mut start_time = None;
 
     //Loop over events
     for frame in iter {
         match frame {
             //Print the frame
             FfmpegEvent::OutputFrame(frame) => {
-                let start = Instant::now();
-
                 //Move cursor up by height lines (except on first frame)
-                if !first {
+                if start_time.is_some() {
                     print!("\x1b[{}A", frame.height);
                 }
-                //On first frame, hide cursor
+                //On first frame, hide cursor + set start time
                 else {
                     print!("\x1b[?25l");
-                    first = false;
+                    start_time = Some(Instant::now());
                 }
                 stdout().flush().unwrap();
+
+                //Timestamp to aim for
+                let timestamp = Duration::from_secs_f32(frame.timestamp);
 
                 //Print frame
                 print_frame(frame, fmt);
 
-                //Calculate time to print
-                let print_time = Instant::now() - start;
-                //Sleep to match framerate, saturating to prevent underflow
-                sleep(sleep_time.saturating_sub(print_time));
+                //Time since start, start_time is guaranteed to exist
+                let elapsed_time = Instant::now() - start_time.unwrap();
+                //How long to sleep, saturating to prevent underflow
+                let sleep_time = timestamp.saturating_sub(elapsed_time);
+                //Sleep to match fps
+                sleep(sleep_time);
             },
             //Display errors
             FfmpegEvent::Error(err)

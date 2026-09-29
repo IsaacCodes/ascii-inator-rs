@@ -18,7 +18,7 @@ pub fn get_iter(
     width: u16,
     height: u16,
     ignore_ar: bool,
-    framerate: u16,
+    fps: u16,
 ) -> anyhow::Result<FfmpegIterator> {
     //If we can ignore aspect ratio, just scale normally
     let size_filter = if ignore_ar {
@@ -34,16 +34,20 @@ pub fn get_iter(
         )
     };
 
+    //Caps requested fps at the source_fps, rounding up to avoid issues with images at low framerates
+    let frame_filter = format!("fps=fps='min({fps},source_fps)':round=up");
+
+    //Combine filters
+    let final_filter = size_filter + "," + &frame_filter;
+
     //Command builder for iterator
     let iter = FfmpegCommand::new()
+        //Set arguments
         .input(src)
-        .filter(size_filter)
-        //TODO: Cap framerate at native rate
-        .rate(framerate.into())
+        .filter(final_filter)
         .rawvideo()
-        //Run the command
+        //Run command + create blocking iterator
         .spawn()?
-        //Create a blocking iterator
         .iter()?;
 
     Ok(iter)

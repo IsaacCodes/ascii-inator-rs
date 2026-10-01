@@ -10,6 +10,8 @@ pub enum SymbolFormat {
     Ascii,
     AsciiColor,
     SquareColor,
+    AsciiInverted,
+    SquareInverted,
 }
 
 //Generates the ffmpeg frame iterator
@@ -71,10 +73,11 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
             print_symbol(r, g, b, fmt, &mut out);
         }
 
-        //Newline and clear color (if relevant)
+        //Newline
         match fmt {
             SymbolFormat::Ascii => writeln!(out).unwrap(),
-            SymbolFormat::AsciiColor | SymbolFormat::SquareColor => {
+            //Other (color) variants clear color
+            _ => {
                 writeln!(out, "\x1b[0m").unwrap();
             },
         }
@@ -84,14 +87,22 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 }
 
 //Converts to symbol according to format
-fn print_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat, out: &mut StdoutLock) {
+fn print_symbol(
+    mut r: u8,
+    mut g: u8,
+    mut b: u8,
+    fmt: SymbolFormat,
+    out: &mut StdoutLock,
+) {
     //Range of chars used for ascii conversion
     const ASCII_CHARS: &[u8] = b" .,-:;coaPO0@#";
 
     //Symbol based on format
     let symbol: char = match fmt {
         //Finds ascii symbol
-        SymbolFormat::Ascii | SymbolFormat::AsciiColor => {
+        SymbolFormat::Ascii
+        | SymbolFormat::AsciiColor
+        | SymbolFormat::AsciiInverted => {
             //ITU-R 601-2 luma transform
             let grayscale =
                 0.299 * (r as f32) + 0.587 * (g as f32) + 0.114 * (b as f32);
@@ -104,19 +115,26 @@ fn print_symbol(r: u8, g: u8, b: u8, fmt: SymbolFormat, out: &mut StdoutLock) {
             ASCII_CHARS[i].into()
         },
         //Just uses space
-        SymbolFormat::SquareColor => ' ',
+        SymbolFormat::SquareColor | SymbolFormat::SquareInverted => ' ',
     };
+
+    //Invert the colors using subtraction
+    if let SymbolFormat::AsciiInverted | SymbolFormat::SquareInverted = fmt {
+        r = 255 - r;
+        g = 255 - g;
+        b = 255 - b;
+    }
 
     //Writes to out
     match fmt {
         //No color
         SymbolFormat::Ascii => write!(out, "{symbol}").unwrap(),
         //Foreground rgb
-        SymbolFormat::AsciiColor => {
+        SymbolFormat::AsciiColor | SymbolFormat::AsciiInverted => {
             write!(out, "\x1b[38;2;{r};{g};{b}m{symbol}").unwrap()
         },
         //Background rgb
-        SymbolFormat::SquareColor => {
+        SymbolFormat::SquareColor | SymbolFormat::SquareInverted => {
             write!(out, "\x1b[48;2;{r};{g};{b}m{symbol}").unwrap()
         },
     }

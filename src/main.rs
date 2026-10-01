@@ -22,8 +22,8 @@ struct Args {
     /// Path to source file
     file: String,
 
-    /// Symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor
-    #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=3))]
+    /// Symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor, 4 - AsciiInverted, 5 - SquareInverted
+    #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=5))]
     format: u8,
 
     /// Maximum width to use [default: terminal_width if possible, else 80]
@@ -41,8 +41,8 @@ struct Args {
     /// Specifies rendering framerate, capped at native fps
     #[arg(long, default_value_t = 10, value_parser=clap::value_parser!(u16).range(1..))]
     fps: u16,
-    
-    //TODO: Add more options like start_time
+
+    //TODO: Add more options like start_time, play_speed
 }
 
 
@@ -74,7 +74,9 @@ fn main() {
         1 => SymbolFormat::Ascii,
         2 => SymbolFormat::AsciiColor,
         3 => SymbolFormat::SquareColor,
-        _ => panic!("Impossible due to 1..=3 restriction on input"),
+        4 => SymbolFormat::AsciiInverted,
+        5 => SymbolFormat::SquareInverted,
+        _ => panic!("Impossible, args.format input restricted by clap"),
     };
 
     //Calculate terminal size (and cast to u16's)
@@ -94,6 +96,7 @@ fn main() {
     //Loop over events
     for frame in iter {
         match frame {
+            //TODO: Better handling of terminal resizes (ex large -> small)?
             //Print the frame
             FfmpegEvent::OutputFrame(frame) => {
                 //Move cursor up by height lines (except on first frame)
@@ -128,7 +131,7 @@ fn main() {
             _ => (),
         }
 
-        //TODO: In some cases this somehow seems to break while still printing??
+        //TODO: In some cases (ex. slow printing, large, colored videos), it somehow breaks mid print
         //Checks quit (Ctrl+C) handler to stop printing frames and then run cleanup below
         if quit.load(Ordering::SeqCst) {
             break;

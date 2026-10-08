@@ -17,6 +17,7 @@ use ffmpeg_sidecar::{
 use ascii_inator_rs::{SymbolFormat, get_iter, print_frame};
 
 
+//TODO: Add more options like start_time, play_speed, pre_render?
 #[derive(Parser)]
 struct Args {
     /// Path to source file
@@ -41,8 +42,6 @@ struct Args {
     /// Specifies rendering framerate, capped at native fps
     #[arg(long, default_value_t = 10, value_parser=clap::value_parser!(u16).range(1..))]
     fps: u16,
-
-    //TODO: Add more options like start_time, play_speed
 }
 
 
@@ -96,11 +95,25 @@ fn main() {
     //Loop over events
     for frame in iter {
         match frame {
-            //TODO: Better handling of terminal resizes (ex large -> small)?
             //Print the frame
             FfmpegEvent::OutputFrame(frame) => {
-                //Move cursor up by height lines (except on first frame)
+                //If not the first frame
                 if start_time.is_some() {
+                    //If size available, check video height/width against current height/width (h+1 for newline)
+                    if let Some(new_size) = terminal_size::terminal_size()
+                        && (width > new_size.0.0 || height + 1 > new_size.1.0)
+                    {
+                        eprintln!(
+                            "Requested video size including newline ({}, {}) must remain within terminal size ({}, {})",
+                            width,
+                            height + 1,
+                            new_size.0.0,
+                            new_size.1.0
+                        );
+                        break;
+                    }
+
+                    //Move cursor up by height lines
                     print!("\x1b[{}A", frame.height);
                 }
                 //On first frame, hide cursor + set start time

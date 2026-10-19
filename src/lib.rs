@@ -61,7 +61,7 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 
     //Data is flat vec with r, g, b for each frame's pixel
     for y in 0..frame.height {
-        //This line of chars
+        //This row of chars
         for x in 0..frame.width {
             //Get starting index for pixel
             let i = ((y * frame.width + x) * 3) as usize;
@@ -69,17 +69,17 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
             let (r, g, b) =
                 (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
 
-            //Print symbol (with formatting)
+            //Print symbol with formatting
             print_symbol(r, g, b, fmt, &mut out);
         }
 
-        //Newline
-        match fmt {
-            SymbolFormat::Ascii => writeln!(out).unwrap(),
-            //Other (color) variants clear color
-            _ => {
-                writeln!(out, "\x1b[0m").unwrap();
-            },
+        //Clear color for non-Ascii
+        if !matches!(fmt, SymbolFormat::Ascii) {
+            write!(out, "\x1b[0m").unwrap();
+        }
+        //Newline excluding last row
+        if y != frame.height - 1 {
+            writeln!(out).unwrap()
         }
     }
 
@@ -119,7 +119,7 @@ fn print_symbol(
     };
 
     //Invert the colors using subtraction
-    if let SymbolFormat::AsciiInverted | SymbolFormat::SquareInverted = fmt {
+    if matches!(fmt, SymbolFormat::AsciiInverted | SymbolFormat::SquareInverted) {
         r = 255 - r;
         g = 255 - g;
         b = 255 - b;

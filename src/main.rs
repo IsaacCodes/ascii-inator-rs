@@ -17,7 +17,8 @@ use ffmpeg_sidecar::{
 use ascii_inator_rs::{SymbolFormat, get_iter, print_frame};
 
 
-//TODO: Add more options like start_time, play_speed, pre_render?
+//TODO: Add more options like start_time, play_speed
+//TODO: Add 8 bit resolution color option, refactor format input into symbol + color types?
 #[derive(Parser)]
 struct Args {
     /// Path to source file
@@ -31,7 +32,7 @@ struct Args {
     #[arg(short('W'), long, default_value = None)]
     width: Option<u16>,
 
-    /// Maximum width to use [default: terminal_height-1 if possible, else 10]
+    /// Maximum width to use [default: terminal_height if possible, else 10]
     #[arg(short('H'), long, default_value = None)]
     height: Option<u16>,
 
@@ -83,7 +84,7 @@ fn main() {
 
     //Size fallbacks as cli args -> terminal -> hardcoded
     let width = args.width.or(term_size.map(|(w, _)| w)).unwrap_or(80);
-    let height = args.height.or(term_size.map(|(_, h)| h - 1)).unwrap_or(10);
+    let height = args.height.or(term_size.map(|(_, h)| h)).unwrap_or(10);
 
     //Creates iterator
     let iter = get_iter(&args.file, width, height, args.ignore_ar, args.fps)
@@ -99,29 +100,29 @@ fn main() {
             FfmpegEvent::OutputFrame(frame) => {
                 //If not the first frame
                 if start_time.is_some() {
-                    //If size available, check video height/width against current height/width (h+1 for newline)
+                    //If size available, check video height/width against current height/width
                     if let Some(new_size) = terminal_size::terminal_size()
-                        && (width > new_size.0.0 || height + 1 > new_size.1.0)
+                        && (width > new_size.0.0 || height > new_size.1.0)
                     {
                         eprintln!(
-                            "Requested video size including newline ({}, {}) must remain within terminal size ({}, {})",
+                            "Requested video size ({}, {}) must remain within terminal size ({}, {})",
                             width,
-                            height + 1,
+                            height,
                             new_size.0.0,
                             new_size.1.0
                         );
                         break;
                     }
 
-                    //Move cursor up by height lines
-                    print!("\x1b[{}A", frame.height);
+                    //Move cursor up by height - 1 lines, carriage return to start of line
+                    print!("\x1b[{}A\r", frame.height - 1);
                 }
                 //On first frame, hide cursor + set start time
                 else {
                     print!("\x1b[?25l");
+                    stdout().flush().unwrap();
                     start_time = Some(Instant::now());
                 }
-                stdout().flush().unwrap();
 
                 //Timestamp to aim for
                 let timestamp = Duration::from_secs_f32(frame.timestamp);
@@ -151,7 +152,6 @@ fn main() {
         }
     }
 
-    //Show cursor
-    print!("\x1b[?25h");
-    stdout().flush().unwrap();
+    //Final newline, show cursor
+    println!("\x1b[?25h");
 }

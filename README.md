@@ -2,15 +2,19 @@
 
 ### Supports:
 * Any image or video readable by ffmpeg
-* Rendering formats for: `Ascii`, `AsciiColor`, and `SquareColor`
+* Rendering formats for `Ascii`, `AsciiColor`, and `SquareColor`
+* Option to invert rendering colors
+---
 * Terminal size detection
-* Custom input sizes
+* Option to specify sizes
 * Resizing bounds that respect aspect ratio
-* Ability to ignore aspect ratio
+* Option to ignore aspect ratio
+---
+* Option to set rendering fps
 
 
 ## Runtime Dependencies
 
-Requires `ffmpeg` installed on the path
+Requires ffmpeg installed on the path
 
 Only runs in the terminal

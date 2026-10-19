@@ -18,29 +18,32 @@ use ascii_inator_rs::{SymbolFormat, get_iter, print_frame};
 
 
 //TODO: Add more options like start_time, play_speed
-//TODO: Add 8 bit resolution color option, refactor format input into symbol + color types?
 #[derive(Parser)]
 struct Args {
     /// Path to source file
     file: String,
 
-    /// Symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor, 4 - AsciiInverted, 5 - SquareInverted
-    #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=5))]
+    /// Symbol format to use; 1 - Ascii, 2 - AsciiColor, 3 - SquareColor
+    #[arg(short, long, default_value_t = 1, value_parser=clap::value_parser!(u8).range(1..=3))]
     format: u8,
 
+    /// Inverts rendering format colors
+    #[arg(long)]
+    inverted: bool, 
+
     /// Maximum width to use [default: terminal_width if possible, else 80]
-    #[arg(short('W'), long, default_value = None)]
+    #[arg(short('W'), long)]
     width: Option<u16>,
 
     /// Maximum width to use [default: terminal_height if possible, else 10]
-    #[arg(short('H'), long, default_value = None)]
+    #[arg(short('H'), long)]
     height: Option<u16>,
 
     /// Ignores aspect ratio correction
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     ignore_ar: bool,
 
-    /// Specifies rendering framerate, capped at native fps
+    /// Rendering framerate, capped at native fps
     #[arg(long, default_value_t = 10, value_parser=clap::value_parser!(u16).range(1..))]
     fps: u16,
 }
@@ -70,12 +73,12 @@ fn main() {
     let args = Args::parse();
 
     //Match format
-    let fmt = match args.format {
-        1 => SymbolFormat::Ascii,
-        2 => SymbolFormat::AsciiColor,
-        3 => SymbolFormat::SquareColor,
-        4 => SymbolFormat::AsciiInverted,
-        5 => SymbolFormat::SquareInverted,
+    let fmt = match (args.format, args.inverted) {
+        (1, _) => SymbolFormat::Ascii,
+        (2, false) => SymbolFormat::AsciiColor,
+        (3, false) => SymbolFormat::SquareColor,
+        (2, true) => SymbolFormat::AsciiInverted,
+        (3, true) => SymbolFormat::SquareInverted,
         _ => panic!("Impossible, args.format input restricted by clap"),
     };
 

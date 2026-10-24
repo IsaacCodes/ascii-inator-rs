@@ -1,8 +1,6 @@
 use std::io::{StdoutLock, Write, stdout};
 
-use ffmpeg_sidecar::{
-    command::FfmpegCommand, event::OutputVideoFrame, iter::FfmpegIterator,
-};
+use ffmpeg_sidecar::{command::FfmpegCommand, event::OutputVideoFrame, iter::FfmpegIterator};
 
 //Defines format for printing symbols
 #[derive(Copy, Clone, Debug)]
@@ -31,8 +29,7 @@ pub fn get_iter(
         format!(
             //AR = iw/ih (the AR of the actual image/video) * 2.5 (20/8) to correct for terminal character's size
             //Takes min(width, height*AR) by min(height, width*AR) to stay within range
-            "scale='min({0}, {1}*(iw/ih)*2.5)':'min({1}, {0}/((iw/ih)*2.5))'",
-            width, height
+            "scale='min({width}, {height}*(iw/ih)*2.5)':'min({height}, {width}/((iw/ih)*2.5))'",
         )
     };
 
@@ -56,7 +53,7 @@ pub fn get_iter(
 }
 
 //Prints a frame according to format
-pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
+pub fn print_frame(frame: &OutputVideoFrame, fmt: SymbolFormat) {
     let mut out = stdout().lock();
 
     //Data is flat vec with r, g, b for each frame's pixel
@@ -66,8 +63,7 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
             //Get starting index for pixel
             let i = ((y * frame.width + x) * 3) as usize;
             //Get each rgb value
-            let (r, g, b) =
-                (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
+            let (r, g, b) = (frame.data[i], frame.data[i + 1], frame.data[i + 2]);
 
             //Print symbol with formatting
             print_symbol(r, g, b, fmt, &mut out);
@@ -79,7 +75,7 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
         }
         //Newline excluding last row
         if y != frame.height - 1 {
-            writeln!(out).unwrap()
+            writeln!(out).unwrap();
         }
     }
 
@@ -87,25 +83,16 @@ pub fn print_frame(frame: OutputVideoFrame, fmt: SymbolFormat) {
 }
 
 //Converts to symbol according to format
-fn print_symbol(
-    mut r: u8,
-    mut g: u8,
-    mut b: u8,
-    fmt: SymbolFormat,
-    out: &mut StdoutLock,
-) {
+fn print_symbol(mut r: u8, mut g: u8, mut b: u8, fmt: SymbolFormat, out: &mut StdoutLock) {
     //Range of chars used for ascii conversion
     const ASCII_CHARS: &[u8] = b" .,-:;coaPO0@#";
 
     //Symbol based on format
     let symbol: char = match fmt {
         //Finds ascii symbol
-        SymbolFormat::Ascii
-        | SymbolFormat::AsciiColor
-        | SymbolFormat::AsciiInverted => {
+        SymbolFormat::Ascii | SymbolFormat::AsciiColor | SymbolFormat::AsciiInverted => {
             //ITU-R 601-2 luma transform
-            let grayscale =
-                0.299 * (r as f32) + 0.587 * (g as f32) + 0.114 * (b as f32);
+            let grayscale = 0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b);
 
             //Convert "grayness" to index
             let i = grayscale / 255f32 * (ASCII_CHARS.len() - 1) as f32;
@@ -119,7 +106,10 @@ fn print_symbol(
     };
 
     //Invert the colors using subtraction
-    if matches!(fmt, SymbolFormat::AsciiInverted | SymbolFormat::SquareInverted) {
+    if matches!(
+        fmt,
+        SymbolFormat::AsciiInverted | SymbolFormat::SquareInverted
+    ) {
         r = 255 - r;
         g = 255 - g;
         b = 255 - b;
@@ -131,11 +121,11 @@ fn print_symbol(
         SymbolFormat::Ascii => write!(out, "{symbol}").unwrap(),
         //Foreground rgb
         SymbolFormat::AsciiColor | SymbolFormat::AsciiInverted => {
-            write!(out, "\x1b[38;2;{r};{g};{b}m{symbol}").unwrap()
+            write!(out, "\x1b[38;2;{r};{g};{b}m{symbol}").unwrap();
         },
         //Background rgb
         SymbolFormat::SquareColor | SymbolFormat::SquareInverted => {
-            write!(out, "\x1b[48;2;{r};{g};{b}m{symbol}").unwrap()
+            write!(out, "\x1b[48;2;{r};{g};{b}m{symbol}").unwrap();
         },
     }
 }

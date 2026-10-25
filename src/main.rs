@@ -90,6 +90,8 @@ fn main() {
 
     //Sentinel on for sleep times, becomes Some(...) on first frame
     let mut start_time = None;
+    //Error message if early exit
+    let mut error_message = None;
 
     //Loop over events
     for frame in iter {
@@ -102,11 +104,10 @@ fn main() {
                     if let Some(new_size) = terminal_size::terminal_size()
                         && (width > new_size.0.0 || height > new_size.1.0)
                     {
-                        //TODO: Missing newline when not piped
-                        eprintln!(
+                        error_message = Some(format!(
                             "Requested video size ({}, {}) must remain within terminal size ({}, {})",
                             width, height, new_size.0.0, new_size.1.0
-                        );
+                        ));
                         break;
                     }
 
@@ -135,7 +136,7 @@ fn main() {
             },
             //Display errors
             FfmpegEvent::Error(err) | FfmpegEvent::Log(LogLevel::Error | LogLevel::Fatal, err) => {
-                eprintln!("Error: {err}");
+                error_message = Some(format!("Error: {err}"));
                 break;
             },
             _ => (),
@@ -146,10 +147,15 @@ fn main() {
 
         //Checks quit (Ctrl+C) handler to stop printing frames and then run cleanup below
         if quit.load(Ordering::SeqCst) {
+            error_message = Some("Quit".to_string());
             break;
         }
     }
 
     //Final newline, show cursor
     println!("\x1b[?25h");
+    //Print any errors
+    if let Some(message) = error_message {
+        eprintln!("{message}");
+    }
 }
